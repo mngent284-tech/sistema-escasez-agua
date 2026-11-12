@@ -2,13 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-import folium
-from streamlit_folium import st_folium
+import pydeck as pdk
 
 st.set_page_config(page_title="Sistema IA - Escasez de Agua", page_icon="💧", layout="wide")
 
 st.title("💧 Sistema Inteligente de Predicción de Escasez de Agua")
-st.markdown("Gemelo Digital y Modelo Predictivo impulsado por **Inteligencia Artificial**")
+st.markdown("Gemelo Digital 3D y Modelo Predictivo impulsado por **Inteligencia Artificial**")
 
 @st.cache_data
 def cargar_y_entrenar():
@@ -84,41 +83,45 @@ with col1:
         st.write("- Activar racionamiento en turnos de riego.")
         st.write("- Restringir uso no esencial de agua potable.")
         st.write("- Activar pozos de reserva y cisternas.")
-        color_mapa = "red"
-        estado_txt = f"ALERTA ROJA ({probabilidad:.1f}%)"
+        color_rgb = [255, 50, 50, 180]
+        altura_columna = 45000
     else:
         st.success("💧 ESTADO ESTABLE: Suministro de agua suficiente.")
         st.markdown("### 📋 Recomendaciones (Paso 7):")
         st.write("- Mantener monitoreo rutinario de cuencas.")
         st.write("- Continuar campañas de ahorro hídrico.")
-        color_mapa = "green"
-        estado_txt = f"ESTADO NORMAL ({probabilidad:.1f}%)"
+        color_rgb = [40, 200, 100, 180]
+        altura_columna = 15000
 
 with col2:
-    st.subheader("🌍 Gemelo Digital Satelital (ArcGIS / Esri)")
-    mapa = folium.Map(location=[-4.3, -80.5], zoom_start=8, tiles=None)
+    st.subheader("🌍 Gemelo Digital 3D (Maqueta Virtual)")
     
-    folium.TileLayer(
-        tiles='https://arcgisonline.com{z}/{y}/{x}',
-        attr='Esri World Imagery',
-        name='Vista Satelital'
-    ).add_to(mapa)
-    
-    folium.TileLayer(
-        tiles='https://arcgisonline.com{z}/{y}/{x}',
-        attr='Esri Boundaries',
-        name='Etiquetas',
-        overlay=True
-    ).add_to(mapa)
-    
-    puntos = [
-        {"nombre": "Reservorio Poechos (Piura)", "coords": [-4.691, -80.525]},
-        {"nombre": "Cuenca Río Tumbes", "coords": [-3.566, -80.451]},
-        {"nombre": "Valle Agrícola Chira", "coords": [-4.885, -80.685]}
-    ]
-    
-    for p in puntos:
-        folium.Circle(location=p["coords"], radius=25000, color=color_mapa, fill=True, fill_opacity=0.45, popup=estado_txt).add_to(mapa)
-        folium.Marker(location=p["coords"], popup=f"<b>{p['nombre']}</b><br>{estado_txt}", icon=folium.Icon(color=color_mapa, icon="tint", prefix="fa")).add_to(mapa)
-        
-    st_folium(mapa, width=700, height=500, returned_objects=[])
+    # Datos geográficos de las cuencas
+    df_mapa = pd.DataFrame({
+        "nombre": ["Reservorio Poechos (Piura)", "Cuenca Río Tumbes", "Valle Agrícola Chira"],
+        "lat": [-4.691, -3.566, -4.885],
+        "lon": [-80.525, -80.451, -80.685],
+        "altura": [altura_columna, altura_columna * 0.8, altura_columna * 0.9]
+    })
+
+    # Capa de columnas 3D interactivas
+    capa_3d = pdk.Layer(
+        "ColumnLayer",
+        data=df_mapa,
+        get_position=["lon", "lat"],
+        get_elevation="altura",
+        elevation_scale=1,
+        radius=12000,
+        get_fill_color=color_rgb,
+        pickable=True,
+        auto_highlight=True,
+    )
+
+    vista = pdk.ViewState(latitude=-4.3, longitude=-80.5, zoom=7.5, pitch=45)
+
+    # Renderizamos el mapa nativo 3D (funciona sin bloqueos ni API Keys)
+    st.pydeck_chart(pdk.Deck(
+        layers=[capa_3d],
+        initial_view_state=vista,
+        tooltip={"text": "{nombre}\nRiesgo calculado: " + f"{probabilidad:.1f}%"}
+    ))
