@@ -5,13 +5,11 @@ from sklearn.ensemble import RandomForestClassifier
 import folium
 from streamlit_folium import st_folium
 
-# Configuración de la página web
 st.set_page_config(page_title="Sistema IA - Escasez de Agua", page_icon="💧", layout="wide")
 
 st.title("💧 Sistema Inteligente de Predicción de Escasez de Agua")
 st.markdown("Gemelo Digital y Modelo Predictivo impulsado por **Inteligencia Artificial**")
 
-# --- 1. CARGAR DATOS Y ENTRENAR IA ---
 @st.cache_data
 def cargar_y_entrenar():
     nombre_archivo = "DATOS.xlsx"
@@ -60,13 +58,11 @@ except Exception as e:
     st.error("⚠️ Asegúrate de haber subido el archivo 'DATOS.xlsx' a tu repositorio de GitHub.")
     st.stop()
 
-# --- 2. BARRA LATERAL DE SIMULACIÓN ---
 st.sidebar.header("🎛️ Simulador de Escenarios")
 lluvia = st.sidebar.slider("Precipitaciones / Lluvia (mm)", 0.0, 200.0, 110.0)
 temp = st.sidebar.slider("Temperatura Promedio (°C)", 10.0, 40.0, 27.5)
 consumo = st.sidebar.slider("Consumo de Agua (m³)", 5000.0, 25000.0, 19000.0)
 
-# Preparar escenario para predecir
 if len(columnas_entrada) == 3:
     datos_usuario = pd.DataFrame([[lluvia, temp, consumo]], columns=columnas_entrada)
 else:
@@ -76,7 +72,6 @@ else:
 prediccion = modelo_ia.predict(datos_usuario).item()
 probabilidad = modelo_ia.predict_proba(datos_usuario).flatten().tolist().pop() * 100
 
-# --- 3. PANEL PRINCIPAL DIVIDIDO EN DOS COLUMNAS ---
 col1, col2 = st.columns([1, 1.5])
 
 with col1:
@@ -103,14 +98,12 @@ with col2:
     st.subheader("🌍 Gemelo Digital Satelital (ArcGIS / Esri)")
     mapa = folium.Map(location=[-4.3, -80.5], zoom_start=8, tiles=None)
     
-    # Servidor Satelital de Esri / ArcGIS (100% compatible con Streamlit)
     folium.TileLayer(
         tiles='https://arcgisonline.com{z}/{y}/{x}',
         attr='Esri World Imagery',
         name='Vista Satelital'
     ).add_to(mapa)
     
-    # Capa de nombres de ciudades y ríos encima del satélite
     folium.TileLayer(
         tiles='https://arcgisonline.com{z}/{y}/{x}',
         attr='Esri Boundaries',
@@ -129,8 +122,3 @@ with col2:
         folium.Marker(location=p["coords"], popup=f"<b>{p['nombre']}</b><br>{estado_txt}", icon=folium.Icon(color=color_mapa, icon="tint", prefix="fa")).add_to(mapa)
         
     st_folium(mapa, width=700, height=500, returned_objects=[])
-
-        folium.Circle(location=p["coords"], radius=25000, color=color_mapa, fill=True, fill_opacity=0.45, popup=estado_txt).add_to(mapa)
-        folium.Marker(location=p["coords"], popup=f"<b>{p['nombre']}</b><br>{estado_txt}", icon=folium.Icon(color=color_mapa, icon="tint", prefix="fa")).add_to(mapa)
-        
-    st_folium(mapa, width=700, height=500)
