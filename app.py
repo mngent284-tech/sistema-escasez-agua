@@ -60,11 +60,11 @@ except Exception as e:
     st.error("⚠️ Asegúrate de haber subido el archivo 'DATOS.xlsx' a tu repositorio de GitHub.")
     st.stop()
 
-# --- 2. BARRA LATERAL DE SIMULACIÓN (CONTROLES) ---
+# --- 2. BARRA LATERAL DE SIMULACIÓN ---
 st.sidebar.header("🎛️ Simulador de Escenarios")
-lluvia = st.sidebar.slider("Precipitaciones / Lluvia (mm)", 0.0, 200.0, 15.0)
-temp = st.sidebar.slider("Temperatura Promedio (°C)", 10.0, 40.0, 29.0)
-consumo = st.sidebar.slider("Consumo de Agua (m³)", 5000.0, 25000.0, 18000.0)
+lluvia = st.sidebar.slider("Precipitaciones / Lluvia (mm)", 0.0, 200.0, 110.0)
+temp = st.sidebar.slider("Temperatura Promedio (°C)", 10.0, 40.0, 27.5)
+consumo = st.sidebar.slider("Consumo de Agua (m³)", 5000.0, 25000.0, 19000.0)
 
 # Preparar escenario para predecir
 if len(columnas_entrada) == 3:
@@ -77,7 +77,7 @@ prediccion = modelo_ia.predict(datos_usuario).item()
 probabilidad = modelo_ia.predict_proba(datos_usuario).flatten().tolist().pop() * 100
 
 # --- 3. PANEL PRINCIPAL DIVIDIDO EN DOS COLUMNAS ---
-col1, col2 = st.columns([1, 2])
+col1, col2 = st.columns([1, 1.5])
 
 with col1:
     st.subheader("🧠 Diagnóstico de la IA")
@@ -100,12 +100,22 @@ with col1:
         estado_txt = f"ESTADO NORMAL ({probabilidad:.1f}%)"
 
 with col2:
-    st.subheader("🌍 Gemelo Digital Satelital (Maqueta Virtual)")
+    st.subheader("🌍 Gemelo Digital Satelital (ArcGIS / Esri)")
     mapa = folium.Map(location=[-4.3, -80.5], zoom_start=8, tiles=None)
+    
+    # Servidor Satelital de Esri / ArcGIS (100% compatible con Streamlit)
     folium.TileLayer(
-        tiles='https://google.com{x}&y={y}&z={z}',
-        attr='Google Satellite',
+        tiles='https://arcgisonline.com{z}/{y}/{x}',
+        attr='Esri World Imagery',
         name='Vista Satelital'
+    ).add_to(mapa)
+    
+    # Capa de nombres de ciudades y ríos encima del satélite
+    folium.TileLayer(
+        tiles='https://arcgisonline.com{z}/{y}/{x}',
+        attr='Esri Boundaries',
+        name='Etiquetas',
+        overlay=True
     ).add_to(mapa)
     
     puntos = [
@@ -115,6 +125,11 @@ with col2:
     ]
     
     for p in puntos:
+        folium.Circle(location=p["coords"], radius=25000, color=color_mapa, fill=True, fill_opacity=0.45, popup=estado_txt).add_to(mapa)
+        folium.Marker(location=p["coords"], popup=f"<b>{p['nombre']}</b><br>{estado_txt}", icon=folium.Icon(color=color_mapa, icon="tint", prefix="fa")).add_to(mapa)
+        
+    st_folium(mapa, width=700, height=500, returned_objects=[])
+
         folium.Circle(location=p["coords"], radius=25000, color=color_mapa, fill=True, fill_opacity=0.45, popup=estado_txt).add_to(mapa)
         folium.Marker(location=p["coords"], popup=f"<b>{p['nombre']}</b><br>{estado_txt}", icon=folium.Icon(color=color_mapa, icon="tint", prefix="fa")).add_to(mapa)
         
