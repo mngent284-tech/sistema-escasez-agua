@@ -84,14 +84,14 @@ with col1:
         st.write("- Activar racionamiento en turnos de riego.")
         st.write("- Restringir uso no esencial de agua potable.")
         st.write("- Activar pozos de reserva y cisternas.")
-        color_zona =
+        color_zona = list((235, 50, 50, 150))
         radio_zona = 28000
     else:
         st.success("💧 ESTADO ESTABLE: Suministro de agua suficiente.")
         st.markdown("### 📋 Recomendaciones (Paso 7):")
         st.write("- Mantener monitoreo rutinario de cuencas.")
         st.write("- Continuar campañas de ahorro hídrico.")
-        color_zona =
+        color_zona = list((30, 200, 100, 150))
         radio_zona = 18000
 
 with col2:
@@ -109,14 +109,13 @@ with col2:
         "radio": [radio_zona, radio_zona * 0.85, radio_zona * 0.9, radio_zona * 0.75]
     })
 
-    # Capa de áreas de riesgo iluminadas (Radar)
     capa_zonas = pdk.Layer(
         "ScatterplotLayer",
         data=df_zonas,
         get_position=["lon", "lat"],
         get_radius="radio",
         get_fill_color=color_zona,
-        get_line_color=[255, 255, 255, 200],
+        get_line_color=list((255, 255, 255, 220)),
         line_width_min_pixels=2,
         stroked=True,
         filled=True,
