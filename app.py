@@ -5,15 +5,13 @@ from sklearn.ensemble import RandomForestClassifier
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="Gemelo Digital Hidrológico IA", page_icon="💧", layout="wide")
-
-st.title("💧 Sistema Inteligente de Predicción de Escasez de Agua")
-st.markdown("Integración de **Machine Learning Predictivo** y **Maqueta Topográfica 3D de Alta Definición**")
+st.title("💧 Sistema Inteligente de Predicción Hídrica (Sequías y Desbordes)")
+st.markdown("Integración de **Machine Learning Predictivo** y **Maqueta Topográfica 3D con Zonas de Riesgo**")
 
 @st.cache_data
 def cargar_y_entrenar():
     nombre_archivo = "DATOS.xlsx"
     df_prueba = pd.read_excel(nombre_archivo)
-    
     if list(df_prueba.columns) == ["Lluvia_mm", "Temperatura_C", "Consumo_m3", "Escasez"]:
         df_final = df_prueba.copy()
         cols = ["Lluvia_mm", "Temperatura_C", "Consumo_m3"]
@@ -52,52 +50,63 @@ def cargar_y_entrenar():
 
 try:
     modelo_ia, columnas_entrada, df_historico = cargar_y_entrenar()
-    st.sidebar.success(f"✅ Modelo IA entrenado con {len(df_historico)} registros")
+    st.sidebar.success(f"✅ IA entrenada con {len(df_historico)} registros")
 except Exception:
-    st.error("⚠️ Asegúrate de que 'DATOS.xlsx' esté en tu repositorio.")
+    st.error("⚠️ Verifica que 'DATOS.xlsx' esté en tu repositorio.")
     st.stop()
 
-# --- BARRA LATERAL GLOBAL ---
-st.sidebar.header("🎛️ Simulador de Variables")
-lluvia = st.sidebar.slider("Precipitaciones en Cabecera (mm)", 0.0, 200.0, 120.0)
-temp = st.sidebar.slider("Temperatura Media (°C)", 10.0, 40.0, 22.0)
-consumo = st.sidebar.slider("Demanda Agrícola y Urbana (m³)", 5000.0, 25000.0, 14000.0)
+st.sidebar.header("🎛️ Simulador Climático Extremo")
+lluvia = st.sidebar.slider("Precipitaciones en Cabecera (mm)", 0.0, 250.0, 120.0)
+temp = st.sidebar.slider("Temperatura Media (°C)", 10.0, 40.0, 24.0)
+consumo = st.sidebar.slider("Demanda Agrícola y Urbana (m³)", 5000.0, 25000.0, 15000.0)
 
-nivel_reservorio = min(100.0, max(5.0, (lluvia * 0.55) - (temp * 0.35) - (consumo * 0.0004) + 30.0))
+nivel_reservorio = min(115.0, max(5.0, (lluvia * 0.55) - (temp * 0.30) - (consumo * 0.0004) + 28.0))
 
 if len(columnas_entrada) == 3:
     datos_usuario = pd.DataFrame([[lluvia, temp, consumo]], columns=columnas_entrada)
 else:
-    datos_usuario = pd.DataFrame([[lluvia, temp, nivel_reservorio, 2100000.0, consumo]], columns=columnas_entrada)
+    datos_usuario = pd.DataFrame([[lluvia, temp, min(100.0, nivel_reservorio), 2100000.0, consumo]], columns=columnas_entrada)
 
-prediccion = modelo_ia.predict(datos_usuario).item()
-probabilidad = modelo_ia.predict_proba(datos_usuario).flatten().tolist().pop() * 100
+prediccion_sequia = modelo_ia.predict(datos_usuario).item()
+prob_sequia = modelo_ia.predict_proba(datos_usuario).flatten().tolist().pop() * 100
 
-tab_ia, tab_maqueta = st.tabs(["🧠 1. Motor Predictivo (Inteligencia Artificial)", "🏔️ 2. Maqueta Virtual 3D (Gemelo Digital)"])
+if lluvia >= 155.0 or nivel_reservorio >= 92.0:
+    estado_global = "DESBORDE"
+    prob_desborde = min(99.0, ((lluvia - 140.0) / 110.0) * 100)
+elif prediccion_sequia == 1:
+    estado_global = "SEQUIA"
+else:
+    estado_global = "NORMAL"
 
-# ================= PESTAÑA 1: SOLO LA IA Y LOS DATOS =================
+tab_ia, tab_maqueta = st.tabs(["🧠 1. Motor Predictivo (Sequías y Desbordes)", "🏔️ 2. Maqueta Virtual 3D (Gemelo Digital)"])
+
 with tab_ia:
-    st.subheader("Análisis de Riesgo y Toma de Decisiones")
-    
+    st.subheader("Análisis de Riesgo Hídrico Integral")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Probabilidad de Escasez", f"{probabilidad:.1f}%")
-    m2.metric("Capacidad Estimada Embalse", f"{nivel_reservorio:.0f}%")
-    m3.metric("Precipitación Ingresada", f"{lluvia:.0f} mm")
-    m4.metric("Temperatura Ingresada", f"{temp:.1f} °C")
-    
+    if estado_global == "DESBORDE":
+        m1.metric("Riesgo de Desborde", f"{prob_desborde:.1f}%", delta="Saturación Crítica", delta_color="inverse")
+    else:
+        m1.metric("Riesgo de Sequía", f"{prob_sequia:.1f}%")
+    m2.metric("Capacidad Embalse", f"{nivel_reservorio:.0f}%")
+    m3.metric("Precipitación Simulada", f"{lluvia:.0f} mm")
+    m4.metric("Temperatura Simulada", f"{temp:.1f} °C")
     st.divider()
     
     col_diag, col_graf = st.columns([1, 1.3])
-    
     with col_diag:
-        st.markdown("### 📋 Diagnóstico y Plan de Acción")
-        if prediccion == 1:
-            st.error("🚨 ALERTA CRÍTICA: Riesgo de escasez en los próximos 15 días.")
+        st.markdown("### 📋 Diagnóstico y Plan de Contingencia")
+        if estado_global == "DESBORDE":
+            st.warning("🌊 ALERTA DE DESBORDE E INUNDACIÓN: Lluvias extremas (Tipo Fenómeno El Niño).")
+            st.write("1. **Compuertas:** Apertura controlada de aliviaderos para evitar ruptura.")
+            st.write("2. **Población:** Evacuación preventiva en riberas bajas del río.")
+            st.write("3. **Infraestructura:** Activar defensas ribereñas y drenajes pluviales.")
+        elif estado_global == "SEQUIA":
+            st.error("🚨 ALERTA DE SEQUÍA: Déficit hídrico proyectado a 15 días.")
             st.write("1. **Compuertas:** Cierre parcial en el Reservorio Poechos.")
             st.write("2. **Agricultura:** Activar turnos estrictos de riego en el valle.")
-            st.write("3. **Población:** Priorizar abastecimiento urbano y activar pozos de reserva.")
+            st.write("3. **Población:** Priorizar abastecimiento urbano y habilitar pozos.")
         else:
-            st.success("💧 ESTADO ESTABLE: Suministro hídrico garantizado.")
+            st.success("💧 ESTADO ESTABLE: Equilibrio hídrico en toda la cuenca.")
             st.write("1. **Compuertas:** Flujo normal hacia canales principales.")
             st.write("2. **Agricultura:** Riego abastecido sin restricciones.")
             st.write("3. **Monitoreo:** Continuar registro rutinario en estaciones.")
@@ -106,124 +115,84 @@ with tab_ia:
         st.markdown("### 📊 Tendencia Histórica (Datos Investigados)")
         st.line_chart(df_historico[["Lluvia_mm", "Temperatura_C"]].head(35), height=260)
 
-# ================= PESTAÑA 2: MAQUETA 3D AFILADA =================
 with tab_maqueta:
-    st.subheader("Maqueta Topográfica 3D de Alta Definición")
-    
-    if prediccion == 1:
-        st.warning("🔴 **Sincronizado con IA:** Embalse en nivel crítico, corte de caudal en río y cultivos con estrés hídrico.")
-        escala_suelo = [[0.0, "#7f5539"], [0.25, "#b08968"], [0.55, "#9c6644"], [0.85, "#6c584c"], [1.0, "#d6ccc2"]]
-        color_agua = "rgba(220, 47, 2, 0.88)"
+    st.subheader("Maqueta Topográfica 3D con Zonas de Riesgo Dinámicas")
+    if estado_global == "DESBORDE":
+        st.warning("🌊 **MODO INUNDACIÓN ACTIVADO:** El embalse supera su capacidad y el río se desborda sobre el valle.")
+        escala_suelo = [[0.0, "#1b4332"], [0.35, "#2d6a4f"], [0.65, "#582f0e"], [1.0, "#ffffff"]]
+        color_agua = "rgba(114, 9, 183, 0.88)"
+        color_marcador = "#7209b7"
+        color_area = "rgba(138, 43, 226, 0.38)"
+        z_area, z_texto = 1.2, 2.2
+        etiquetas = ["1. Cuenca Alta (Lluvia Extrema)", "⚠️ REBALSE EN REPRESA", "⚠️ INUNDACIÓN URBANA", "⚠️ CULTIVOS ANEGADOS"]
+    elif estado_global == "SEQUIA":
+        st.error("🚨 **MODO SEQUÍA ACTIVADO:** Embalse en nivel crítico, corte de caudal y cultivos con estrés hídrico.")
+        escala_suelo = [[0.0, "#a47148"], [0.35, "#c38e70"], [0.65, "#8a5a44"], [1.0, "#e6ccb2"]]
+        color_agua = "rgba(230, 57, 70, 0.90)"
+        color_marcador = "red"
+        color_area = "rgba(255, 0, 0, 0.35)"
+        z_area, z_texto = 0.9, 1.9
+        etiquetas = ["1. Cuenca Alta (Baja lluvia)", f"⚠️ RIESGO: Embalse ({nivel_reservorio:.0f}%)", "⚠️ RACIONAMIENTO URBANO", "⚠️ SEQUÍA EN CULTIVOS"]
     else:
-        st.info("🔵 **Sincronizado con IA:** Embalse óptimo, flujo continuo hacia el valle y cultivos verdes saludables.")
-        escala_suelo = [[0.0, "#1b4332"], [0.25, "#40916c"], [0.55, "#6b705c"], [0.85, "#582f0e"], [1.0, "#f8f9fa"]]
-        color_agua = "rgba(0, 119, 182, 0.88)"
+        st.info("🔵 **MODO NORMAL ACTIVADO:** Embalse óptimo, flujo continuo hacia el valle y cultivos saludables.")
+        escala_suelo = [[0.0, "#2d6a4f"], [0.35, "#52b788"], [0.65, "#7f5539"], [1.0, "#ffffff"]]
+        color_agua = "rgba(0, 150, 255, 0.90)"
+        color_marcador = "#0077b6"
+        color_area = "rgba(0, 150, 255, 0.0)"
+        z_area, z_texto = 0.8, 1.6
+        etiquetas = ["1. Cuenca Alta (Captación OK)", f"2. Embalse Óptimo ({nivel_reservorio:.0f}%)", "3. Ciudad Abastecida", "4. Cultivos con Riego Normal"]
 
-    # Malla de alta resolución (160 x 120) para bordes afilados
-    x = np.linspace(0, 12, 160)
-    y = np.linspace(0, 8, 120)
+    x = np.linspace(0, 12, 90)
+    y = np.linspace(0, 8, 70)
     X, Y = np.meshgrid(x, y)
 
-    # Cauce afilado del río con curvas naturales
-    centro_rio = 4.0 + 0.75 * np.sin(X * 0.9) + 0.25 * np.cos(X * 2.1)
+    centro_rio = 4.0 + 0.75 * np.sin(X * 0.9)
     distancia_rio = np.abs(Y - centro_rio)
-
-    # Cordilleras escarpadas en la cuenca alta (X < 5.2)
-    crestas = np.abs(np.sin(X * 1.4 + Y * 0.8)) * 0.65 + np.abs(np.cos(X * 2.5 - Y * 1.9)) * 0.35
+    crestas = np.abs(np.sin(X * 1.4 + Y * 0.8)) * 0.6 + np.abs(np.cos(X * 2.2 - Y * 1.5)) * 0.3
     montanas = np.maximum(0, (5.2 - X) * 0.75) * (0.45 + 0.55 * crestas)
-    
-    # Laderas del cañón con corte definido
-    laderas = np.maximum(0, (distancia_rio - 0.45) ** 1.5) * 0.42
-    # Canal profundo y afilado del río
-    cauce = -0.75 * np.exp(-(distancia_rio ** 2) * 5.5)
+    laderas = np.maximum(0, (distancia_rio - 0.55) ** 1.5) * 0.4
+    cauce = -0.65 * np.exp(-(distancia_rio ** 2) * 4.0)
+    muro_represa = np.where((X >= 5.3) & (X <= 5.7) & (distancia_rio <= 2.2), 1.85, 0.0)
+    Z_terreno = montanas + laderas + cauce + muro_represa
 
-    # Terreno base sin la represa
-    Z_terreno = montanas + laderas + cauce
+    if estado_global == "DESBORDE":
+        altura_embalse, altura_rio_abajo = 1.95, 0.55
+    elif estado_global == "SEQUIA":
+        altura_embalse, altura_rio_abajo = -0.25 + (nivel_reservorio / 100.0) * 1.75, -0.43
+    else:
+        altura_embalse, altura_rio_abajo = -0.25 + (nivel_reservorio / 100.0) * 1.75, -0.07
 
-    # Represa de concreto como estructura independiente y afilada en X = 5.4 a 5.7
-    mascara_presa = (X >= 5.35) & (X <= 5.75) & (distancia_rio <= 2.3)
-    Z_presa = np.where(mascara_presa, 1.85, np.nan)
-
-    # Nivel dinámico del agua
-    altura_embalse = -0.35 + (nivel_reservorio / 100.0) * 1.85
-    altura_rio_abajo = -0.55 + (0.38 if prediccion == 0 else 0.03)
-
-    Z_agua = np.where(X < 5.35, altura_embalse, altura_rio_abajo)
-    Z_agua = np.where((Z_agua > Z_terreno) & (~mascara_presa), Z_agua, np.nan)
+    Z_agua = np.where(X < 5.3, altura_embalse, altura_rio_abajo)
+    Z_agua = np.where((X >= 5.3) & (X <= 5.7), 1.90 if estado_global == "DESBORDE" else -0.8, Z_agua)
 
     fig = go.Figure()
-
-    # 1. Relieve topográfico afilado
-    fig.add_trace(go.Surface(
-        z=Z_terreno, x=X, y=Y,
-        colorscale=escala_suelo,
-        showscale=False,
-        lighting=dict(ambient=0.5, diffuse=0.9, specular=0.2, roughness=0.4),
-        name="Topografía"
-    ))
-
-    # 2. Muro de concreto de la Represa (color gris sólido)
-    fig.add_trace(go.Surface(
-        z=Z_presa, x=X, y=Y,
-        colorscale=[[0, "#adb5bd"], [1, "#6c757d"]],
-        showscale=False,
-        name="Represa Poechos"
-    ))
-
-    # 3. Agua dinámica
-    fig.add_trace(go.Surface(
-        z=Z_agua, x=X, y=Y,
-        colorscale=[[0, color_agua], [1, color_agua]],
-        showscale=False,
-        opacity=0.92,
-        name="Agua"
-    ))
-
-    # 4. Bloques urbanos y parcelas agrícolas en la cuenca baja (X > 7)
+    fig.add_trace(go.Surface(z=Z_terreno, x=X, y=Y, colorscale=escala_suelo, showscale=False, lighting=dict(ambient=0.75, diffuse=0.85, roughness=0.4)))
+    fig.add_trace(go.Surface(z=Z_agua, x=X, y=Y, colorscale=[[0, color_agua], [1, color_agua]], showscale=False, opacity=0.92))
+    
+    color_cultivos = "#e9c46a" if estado_global == "SEQUIA" else "#2a9d8f"
     fig.add_trace(go.Scatter3d(
-        x=[8.2, 8.6, 9.0, 8.4, 9.5, 10.2, 10.8],
-        y=[2.2, 2.5, 2.1, 2.8, 5.8, 6.2, 5.5],
-        z=[0.4, 0.4, 0.4, 0.4, 0.3, 0.3, 0.3],
-        mode="markers",
-        marker=dict(
-            size=[7, 8, 6, 7, 9, 9, 9],
-            symbol="square",
-            color=["#f8f9fa", "#f8f9fa", "#f8f9fa", "#f8f9fa", 
-                   "#e9c46a" if prediccion == 1 else "#2a9d8f",
-                   "#e9c46a" if prediccion == 1 else "#2a9d8f",
-                   "#e9c46a" if prediccion == 1 else "#2a9d8f"]
-        ),
-        name="Ciudad y Cultivos"
+        x=[8.2, 8.6, 9.0, 9.5, 10.2, 10.8], y=[2.2, 2.5, 2.1, 5.8, 6.2, 5.5], z=[0.35, 0.35, 0.35, 0.25, 0.25, 0.25],
+        mode="markers", marker=dict(size=9, symbol="square", color=["#ffffff", "#ffffff", "#ffffff", color_cultivos, color_cultivos, color_cultivos])
     ))
 
-    # 5. Etiquetas flotantes en 3D
+    if estado_global != "NORMAL":
+        fig.add_trace(go.Scatter3d(
+            x=[4.8, 8.6, 10.1], y=[4.0, 2.3, 5.8], z=[z_area, z_area, z_area],
+            mode="markers", marker=dict(size=38, color=color_area, line=dict(color=color_marcador, width=3))
+        ))
+
     fig.add_trace(go.Scatter3d(
-        x=[1.5, 4.3, 5.55, 9.8],
-        y=[4.0, 4.1, 4.0, 4.0],
-        z=[4.2, 2.2, 2.5, 1.3],
-        mode="markers+text",
-        marker=dict(size=6, color="red" if prediccion == 1 else "cyan"),
-        text=[
-            "1. Cordillera / Cuenca Alta",
-            f"2. Embalse ({nivel_reservorio:.0f}%)",
-            "3. Muro Represa",
-            "4. Valle y Ciudad (ALERTA)" if prediccion == 1 else "4. Valle y Ciudad (Estable)"
-        ],
-        textposition="top center",
-        textfont=dict(size=12, color="white")
+        x=[1.5, 4.8, 8.6, 10.1], y=[4.0, 4.0, 2.3, 5.8], z=[4.2, z_texto, z_texto, z_texto],
+        mode="markers+text", marker=dict(size=8, color=color_marcador, symbol="diamond"),
+        text=etiquetas, textposition="top center", textfont=dict(size=12, color="#1d3557")
     ))
 
     fig.update_layout(
-        scene=dict(
-            xaxis=dict(title="Cuenca Alta ➔ Valle", showgrid=False, zeroline=False),
-            yaxis=dict(title="Ancho Cuenca", showgrid=False, zeroline=False),
-            zaxis=dict(title="Elevación", showgrid=False, zeroline=False, range=[-1, 5.5]),
-            camera=dict(eye=dict(x=1.45, y=-1.65, z=1.05)),
-            bgcolor="rgb(12, 16, 24)"
-        ),
-        margin=dict(l=0, r=0, b=0, t=0),
-        height=560,
-        showlegend=False
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+        scene=dict(xaxis=dict(title="Cuenca Alta ➔ Valle", backgroundcolor="rgb(235, 242, 247)", gridcolor="white"),
+yaxis=dict(title="Ancho Cuenca", backgroundcolor="rgb(235, 242, 247)", gridcolor="white"),
+zaxis=dict(title="Elevación", backgroundcolor="rgb(235, 242, 247)", gridcolor="white", range=[-0.8, 5.5]),
+camera=dict(eye=dict(x=1.45, y=-1.65, z=1.05)), bgcolor="rgb(240, 245, 250)"
+),
+margin=dict(l=0, r=0, b=0, t=0), height=550, showlegend=False
+)
+st.plotly_chart(fig, use_container_width=True)
