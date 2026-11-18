@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Gemelo Digital Hidrológico IA", page_icon="💧", layout="wide")
 
 st.title("💧 Sistema Inteligente de Predicción de Escasez de Agua")
-st.markdown("Integración de **Machine Learning Predictivo** y **Maqueta Topográfica 3D**")
+st.markdown("Integración de **Machine Learning Predictivo** y **Maqueta Topográfica 3D de Alta Definición**")
 
 @st.cache_data
 def cargar_y_entrenar():
@@ -57,7 +57,7 @@ except Exception:
     st.error("⚠️ Asegúrate de que 'DATOS.xlsx' esté en tu repositorio.")
     st.stop()
 
-# --- BARRA LATERAL GLOBAL (CONTROLA AMBAS PESTAÑAS) ---
+# --- BARRA LATERAL GLOBAL ---
 st.sidebar.header("🎛️ Simulador de Variables")
 lluvia = st.sidebar.slider("Precipitaciones en Cabecera (mm)", 0.0, 200.0, 120.0)
 temp = st.sidebar.slider("Temperatura Media (°C)", 10.0, 40.0, 22.0)
@@ -73,7 +73,6 @@ else:
 prediccion = modelo_ia.predict(datos_usuario).item()
 probabilidad = modelo_ia.predict_proba(datos_usuario).flatten().tolist().pop() * 100
 
-# --- SEPARACIÓN EN DOS PESTAÑAS INDEPENDIENTES ---
 tab_ia, tab_maqueta = st.tabs(["🧠 1. Motor Predictivo (Inteligencia Artificial)", "🏔️ 2. Maqueta Virtual 3D (Gemelo Digital)"])
 
 # ================= PESTAÑA 1: SOLO LA IA Y LOS DATOS =================
@@ -107,68 +106,108 @@ with tab_ia:
         st.markdown("### 📊 Tendencia Histórica (Datos Investigados)")
         st.line_chart(df_historico[["Lluvia_mm", "Temperatura_C"]].head(35), height=260)
 
-# ================= PESTAÑA 2: SOLO LA MAQUETA 3D VINCULADA =================
+# ================= PESTAÑA 2: MAQUETA 3D AFILADA =================
 with tab_maqueta:
-    st.subheader("Simulación Topográfica 3D de la Cuenca Hidrográfica")
+    st.subheader("Maqueta Topográfica 3D de Alta Definición")
     
     if prediccion == 1:
-        st.warning("🔴 **Sincronizado con IA:** La maqueta muestra el descenso crítico del embalse, corte del río aguas abajo y sequía en los cultivos.")
-        escala_suelo = [[0.0, "#8c6d46"], [0.4, "#c2a36b"], [0.7, "#8a795d"], [1.0, "#dcdcdc"]]
-        color_agua = "rgba(230, 57, 70, 0.85)"
+        st.warning("🔴 **Sincronizado con IA:** Embalse en nivel crítico, corte de caudal en río y cultivos con estrés hídrico.")
+        escala_suelo = [[0.0, "#7f5539"], [0.25, "#b08968"], [0.55, "#9c6644"], [0.85, "#6c584c"], [1.0, "#d6ccc2"]]
+        color_agua = "rgba(220, 47, 2, 0.88)"
     else:
-        st.info("🔵 **Sincronizado con IA:** La maqueta muestra el embalse lleno, flujo continuo por el cauce y cultivos verdes abastecidos.")
-        escala_suelo = [[0.0, "#2d6a4f"], [0.4, "#52b788"], [0.7, "#7f5539"], [1.0, "#ffffff"]]
-        color_agua = "rgba(0, 150, 255, 0.85)"
+        st.info("🔵 **Sincronizado con IA:** Embalse óptimo, flujo continuo hacia el valle y cultivos verdes saludables.")
+        escala_suelo = [[0.0, "#1b4332"], [0.25, "#40916c"], [0.55, "#6b705c"], [0.85, "#582f0e"], [1.0, "#f8f9fa"]]
+        color_agua = "rgba(0, 119, 182, 0.88)"
 
-    x = np.linspace(0, 12, 80)
-    y = np.linspace(0, 8, 60)
+    # Malla de alta resolución (160 x 120) para bordes afilados
+    x = np.linspace(0, 12, 160)
+    y = np.linspace(0, 8, 120)
     X, Y = np.meshgrid(x, y)
 
-    centro_rio = 4.0 + 0.8 * np.sin(X * 0.8)
+    # Cauce afilado del río con curvas naturales
+    centro_rio = 4.0 + 0.75 * np.sin(X * 0.9) + 0.25 * np.cos(X * 2.1)
     distancia_rio = np.abs(Y - centro_rio)
 
-    montanas = np.maximum(0, (5.5 - X) * 0.7) * (0.6 + 0.4 * np.cos(Y * 1.2))
-    laderas = np.maximum(0, (distancia_rio - 0.6) ** 1.6) * 0.35
-    cauce = -0.6 * np.exp(-(distancia_rio ** 2) * 3.5)
-    muro_represa = np.where((X > 5.3) & (X < 5.7) & (distancia_rio < 2.2), 1.8, 0.0)
+    # Cordilleras escarpadas en la cuenca alta (X < 5.2)
+    crestas = np.abs(np.sin(X * 1.4 + Y * 0.8)) * 0.65 + np.abs(np.cos(X * 2.5 - Y * 1.9)) * 0.35
+    montanas = np.maximum(0, (5.2 - X) * 0.75) * (0.45 + 0.55 * crestas)
+    
+    # Laderas del cañón con corte definido
+    laderas = np.maximum(0, (distancia_rio - 0.45) ** 1.5) * 0.42
+    # Canal profundo y afilado del río
+    cauce = -0.75 * np.exp(-(distancia_rio ** 2) * 5.5)
 
-    Z_terreno = montanas + laderas + cauce + muro_represa
+    # Terreno base sin la represa
+    Z_terreno = montanas + laderas + cauce
 
-    altura_embalse = -0.3 + (nivel_reservorio / 100.0) * 1.7
-    altura_rio_abajo = -0.45 + (0.35 if prediccion == 0 else 0.02)
+    # Represa de concreto como estructura independiente y afilada en X = 5.4 a 5.7
+    mascara_presa = (X >= 5.35) & (X <= 5.75) & (distancia_rio <= 2.3)
+    Z_presa = np.where(mascara_presa, 1.85, np.nan)
 
-    Z_agua = np.where(X <= 5.3, altura_embalse, altura_rio_abajo)
-    Z_agua = np.where((Z_agua > Z_terreno) & (muro_represa == 0), Z_agua, np.nan)
+    # Nivel dinámico del agua
+    altura_embalse = -0.35 + (nivel_reservorio / 100.0) * 1.85
+    altura_rio_abajo = -0.55 + (0.38 if prediccion == 0 else 0.03)
+
+    Z_agua = np.where(X < 5.35, altura_embalse, altura_rio_abajo)
+    Z_agua = np.where((Z_agua > Z_terreno) & (~mascara_presa), Z_agua, np.nan)
 
     fig = go.Figure()
 
+    # 1. Relieve topográfico afilado
     fig.add_trace(go.Surface(
         z=Z_terreno, x=X, y=Y,
         colorscale=escala_suelo,
         showscale=False,
-        lighting=dict(ambient=0.6, diffuse=0.8, roughness=0.5),
-        name="Terreno"
+        lighting=dict(ambient=0.5, diffuse=0.9, specular=0.2, roughness=0.4),
+        name="Topografía"
     ))
 
+    # 2. Muro de concreto de la Represa (color gris sólido)
+    fig.add_trace(go.Surface(
+        z=Z_presa, x=X, y=Y,
+        colorscale=[[0, "#adb5bd"], [1, "#6c757d"]],
+        showscale=False,
+        name="Represa Poechos"
+    ))
+
+    # 3. Agua dinámica
     fig.add_trace(go.Surface(
         z=Z_agua, x=X, y=Y,
         colorscale=[[0, color_agua], [1, color_agua]],
         showscale=False,
-        opacity=0.9,
+        opacity=0.92,
         name="Agua"
     ))
 
+    # 4. Bloques urbanos y parcelas agrícolas en la cuenca baja (X > 7)
     fig.add_trace(go.Scatter3d(
-        x=[1.5, 4.5, 5.5, 9.5],
-        y=[4.0, 4.2, 4.0, 4.0],
-        z=[3.8, 2.2, 2.6, 1.2],
+        x=[8.2, 8.6, 9.0, 8.4, 9.5, 10.2, 10.8],
+        y=[2.2, 2.5, 2.1, 2.8, 5.8, 6.2, 5.5],
+        z=[0.4, 0.4, 0.4, 0.4, 0.3, 0.3, 0.3],
+        mode="markers",
+        marker=dict(
+            size=[7, 8, 6, 7, 9, 9, 9],
+            symbol="square",
+            color=["#f8f9fa", "#f8f9fa", "#f8f9fa", "#f8f9fa", 
+                   "#e9c46a" if prediccion == 1 else "#2a9d8f",
+                   "#e9c46a" if prediccion == 1 else "#2a9d8f",
+                   "#e9c46a" if prediccion == 1 else "#2a9d8f"]
+        ),
+        name="Ciudad y Cultivos"
+    ))
+
+    # 5. Etiquetas flotantes en 3D
+    fig.add_trace(go.Scatter3d(
+        x=[1.5, 4.3, 5.55, 9.8],
+        y=[4.0, 4.1, 4.0, 4.0],
+        z=[4.2, 2.2, 2.5, 1.3],
         mode="markers+text",
         marker=dict(size=6, color="red" if prediccion == 1 else "cyan"),
         text=[
-            "1. Cuenca Alta (Captación)",
+            "1. Cordillera / Cuenca Alta",
             f"2. Embalse ({nivel_reservorio:.0f}%)",
-            "3. Represa Poechos",
-            "4. Valle Agrícola (ALERTA)" if prediccion == 1 else "4. Valle Agrícola (Óptimo)"
+            "3. Muro Represa",
+            "4. Valle y Ciudad (ALERTA)" if prediccion == 1 else "4. Valle y Ciudad (Estable)"
         ],
         textposition="top center",
         textfont=dict(size=12, color="white")
@@ -179,11 +218,12 @@ with tab_maqueta:
             xaxis=dict(title="Cuenca Alta ➔ Valle", showgrid=False, zeroline=False),
             yaxis=dict(title="Ancho Cuenca", showgrid=False, zeroline=False),
             zaxis=dict(title="Elevación", showgrid=False, zeroline=False, range=[-1, 5.5]),
-            camera=dict(eye=dict(x=1.4, y=-1.7, z=1.1)),
-            bgcolor="rgb(15, 20, 30)"
+            camera=dict(eye=dict(x=1.45, y=-1.65, z=1.05)),
+            bgcolor="rgb(12, 16, 24)"
         ),
         margin=dict(l=0, r=0, b=0, t=0),
-        height=550
+        height=560,
+        showlegend=False
     )
 
     st.plotly_chart(fig, use_container_width=True)
